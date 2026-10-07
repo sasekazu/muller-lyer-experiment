@@ -308,7 +308,7 @@
     }
   }
 
-  const fmtCm = mm => (mm / 10).toFixed(1);
+  const fmtCm = mm => (mm / 10).toFixed(2); // cm、小数第 2 位まで
 
   function updateUI() {
     // θボタン
@@ -377,7 +377,7 @@
   function record() {
     const t = cur.theta;
     if (t == null || cur.len == null || store.trials[t].length >= N_TRIALS) return;
-    store.trials[t].push(Math.round(cur.len)); // mm 単位（1mm まで）
+    store.trials[t].push(Math.round(cur.len * 10) / 10); // mm（0.1mm = 0.01cm 単位で保存）
     save();
     newTrial();
     updateUI();
@@ -403,7 +403,7 @@
   stage.addEventListener('pointermove', e => {
     const s = pxPerMm();
     if (!cur.drag || !s) return;
-    cur.len = clampLen(Math.round(cur.drag.len + (e.clientX - cur.drag.x) / s), s);
+    cur.len = clampLen(cur.drag.len + (e.clientX - cur.drag.x) / s, s); // 画素単位で連続的に動かす
     render();
   });
   const endDrag = () => { cur.drag = null; };
