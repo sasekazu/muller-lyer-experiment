@@ -48,6 +48,7 @@
   .theta-btn.active small { color: #dbe4ff; }
   .theta-btn.done small { color: var(--done); font-weight: 600; }
   .theta-btn.active.done small { color: #d3f9d8; }
+  .layout-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
   .spacer { flex: 1; }
 
   #status { padding: 6px 14px; color: var(--muted); border-bottom: 1px solid var(--line); min-height: 32px; }
@@ -114,6 +115,11 @@
 
 <div id="toolbar">
   <div class="group" id="thetaGroup"><span class="label">θ</span></div>
+  <div class="group" id="layoutGroup">
+    <span class="label">配置</span>
+    <button class="layout-btn" data-l="h">横並び</button>
+    <button class="layout-btn" data-l="v">縦並び</button>
+  </div>
   <div class="spacer"></div>
   <div class="group">
     <button id="undoBtn">1つ戻す</button>
@@ -164,7 +170,7 @@
 
 <!-- results -->
 <dialog id="resDlg">
-  <h2>結果（単位: cm）</h2>
+  <h2 id="resTitle">結果（単位: cm）</h2>
   <div id="resTable"></div>
   <div class="note">
     表の上を<b>ドラッグ</b>してコピーしたい範囲を選び、<b>Ctrl+C（Mac は ⌘+C）</b>を押すと、Excel にそのまま貼り付けられます。
@@ -205,6 +211,7 @@
   const CMP_OFFSET_MM = 105;              // 標準刺激の左端から比較線の左端まで（主線 80 + 間隔 25）
   const REF_WIDTH_MM  = CMP_OFFSET_MM + MAIN_MM; // 比較線が 8cm のときの全体の幅。これを画面中央に置く
   const RIGHT_MARGIN_MM = 5;
+  const VGAP_MM = 60;                     // 縦並びのときの 2 本の線の間隔（矢羽根が最大 2.4cm 出るので十分あける）
   const MIN_LEN_MM = 10;
   const START_MM  = { up: [40, 50], down: [110, 120] }; // 比較線の初期長（範囲内で毎回ランダム）
   const STROKE_PX = 2;
@@ -213,18 +220,32 @@
 
   // ---------- 状態 ----------
   const emptyTrials = () => Object.fromEntries(THETAS.map(t => [t, []]));
+  // 配置（h=横並び, v=縦並び）ごとに別々に記録する。store.trials は現在の配置のデータを指す。
+  const LAYOUT_JA = { h: '横並び', v: '縦並び' };
+  function makeStore(calib, layout, data) {
+    const st = { calib, layout, data };
+    Object.defineProperty(st, 'trials', {          // 非列挙：保存対象に含めない
+      get() { return this.data[this.layout]; },
+      set(v) { this.data[this.layout] = v; },
+    });
+    return st;
+  }
   let store = load();
   const cur = { theta: null, len: null, drag: null };
 
   function load() {
     try {
       const o = JSON.parse(localStorage.getItem(LS_KEY));
-      if (o && o.trials) {
-        for (const t of THETAS) if (!Array.isArray(o.trials[t])) o.trials[t] = [];
-        return { calib: o.calib || null, trials: o.trials };
+      if (o) {
+        const data = { h: emptyTrials(), v: emptyTrials() };
+        const src = o.data || { h: o.trials };             // 旧形式（trials のみ）は横並びとして引き継ぐ
+        for (const l of ['h', 'v']) for (const t of THETAS) {
+          if (src[l] && Array.isArray(src[l][t])) data[l][t] = src[l][t];
+        }
+        return makeStore(o.calib || null, o.layout === 'v' ? 'v' : 'h', data);
       }
     } catch (e) {}
-    return { calib: null, trials: emptyTrials() };
+    return makeStore(null, 'h', { h: emptyTrials(), v: emptyTrials() });
   }
   function save() {
     try { localStorage.setItem(LS_KEY, JSON.stringify(store)); } catch (e) {}
@@ -263,9 +284,20 @@
   }
 
   // 標準刺激＋比較線（8cm 時）を画面の左右中央に置くための左端位置（mm）
-  const originMm = s => (stage.clientWidth / s - REF_WIDTH_MM) / 2;
+  // 横並び：標準刺激（左）と比較線（右）を同じ高さに置く。縦並び：標準刺激（上）と比較線（下）を左端をそろえて置く。
+  // いずれも「比較線が 8cm のとき」の全体を画面中央に置く（標準刺激は動かさない）。
+  function layoutMm(s) {
+    const W = stage.clientWidth / s;
+    if (store.layout === 'v') {
+      const x = (W - MAIN_MM) / 2;
+      return { stdX: x, cmpCentered: true, stdY: -VGAP_MM / 2, cmpY: VGAP_MM / 2 }; // 比較線は常に画面中央（左右対称に伸縮）
+    }
+    const x = (W - REF_WIDTH_MM) / 2;
+    return { stdX: x, cmpX: x + CMP_OFFSET_MM, stdY: 0, cmpY: 0 };
+  }
   function maxLenMm(s) {
-    return Math.floor(stage.clientWidth / s - (originMm(s) + CMP_OFFSET_MM) - RIGHT_MARGIN_MM);
+    const L = layoutMm(s), W = stage.clientWidth / s;
+    return Math.floor(L.cmpCentered ? W - 2 * RIGHT_MARGIN_MM : W - L.cmpX - RIGHT_MARGIN_MM);
   }
   const clampLen = (mm, s) => Math.max(MIN_LEN_MM, Math.min(maxLenMm(s), mm));
 
@@ -289,19 +321,20 @@
     stage.setAttribute('viewBox', `0 0 ${W} ${H}`);
     if (!s || cur.theta == null) return;
 
+    const L = layoutMm(s);
     const cy = Math.round(H / 2) + 0.5;
-    const x0 = originMm(s) * s, x1 = x0 + MAIN_MM * s;
+    const x0 = L.stdX * s, x1 = x0 + MAIN_MM * s, sy = cy + L.stdY * s;
 
-    // 標準刺激（左）
-    stage.appendChild(el('line', { x1: x0, y1: cy, x2: x1, y2: cy, stroke: '#000', 'stroke-width': STROKE_PX }));
-    stage.appendChild(arrowhead(x0, cy, +1, cur.theta, s));
-    stage.appendChild(arrowhead(x1, cy, -1, cur.theta, s));
+    // 標準刺激（横並び: 左 / 縦並び: 上）
+    stage.appendChild(el('line', { x1: x0, y1: sy, x2: x1, y2: sy, stroke: '#000', 'stroke-width': STROKE_PX }));
+    stage.appendChild(arrowhead(x0, sy, +1, cur.theta, s));
+    stage.appendChild(arrowhead(x1, sy, -1, cur.theta, s));
 
-    // 比較刺激（右）
+    // 比較刺激（横並び: 右 / 縦並び: 下）
     if (cur.len != null) {
-      const c0 = x0 + CMP_OFFSET_MM * s;
+      const c0 = L.cmpCentered ? (W - cur.len * s) / 2 : L.cmpX * s, ry = cy + L.cmpY * s;
       stage.appendChild(el('line', {
-        x1: c0, y1: cy, x2: c0 + cur.len * s, y2: cy, stroke: '#000', 'stroke-width': STROKE_PX,
+        x1: c0, y1: ry, x2: c0 + cur.len * s, y2: ry, stroke: '#000', 'stroke-width': STROKE_PX,
       }));
     }
   }
@@ -317,6 +350,11 @@
       b.querySelector('small').textContent = n >= N_TRIALS ? '完了 ✓' : `${n} / ${N_TRIALS}`;
     }
 
+    // 配置ボタン・操作案内
+    document.querySelectorAll('.layout-btn').forEach(b => b.classList.toggle('active', b.dataset.l === store.layout));
+    const v = store.layout === 'v';
+    $('hint').textContent = `${v ? '下' : '右'}の線をマウスでドラッグして、${v ? '上' : '左'}の矢印の主線と同じ長さに合わせ、「記録」を押してください`;
+
     // ステータス
     const st = $('status');
     const t = cur.theta;
@@ -327,8 +365,8 @@
     } else {
       const n = store.trials[t].length;
       st.innerHTML = n >= N_TRIALS
-        ? `<b>θ = ${t}°</b> ・ 8 回の測定が完了しました。測定値は「結果を表示」で確認・コピーできます。`
-        : `<b>θ = ${t}°</b> ・ 試行 <b>${n + 1} / ${N_TRIALS}</b> ・ ${SERIES_JA[SERIES[n]]}系列`;
+        ? `<b>θ = ${t}°</b> ・ ${LAYOUT_JA[store.layout]} ・ 8 回の測定が完了しました。測定値は「結果を表示」で確認・コピーできます。`
+        : `<b>θ = ${t}°</b> ・ ${LAYOUT_JA[store.layout]} ・ 試行 <b>${n + 1} / ${N_TRIALS}</b> ・ ${SERIES_JA[SERIES[n]]}系列`;
     }
 
     const done = t != null && store.trials[t].length >= N_TRIALS;
@@ -341,8 +379,10 @@
     const s = pxPerMm();
     const msgs = [];
     if (dprMismatch()) msgs.push('表示倍率が校正時と異なります（自動補正中）。ブラウザのズームを戻すか、再校正してください。');
-    // 中央寄せのとき、下降系列の最長の初期長が収まるのに必要な幅（max = W/2 + REF/2 − CMP_OFFSET − 余白 ≥ 初期長）
-    const needMm = 2 * (START_MM.down[1] + RIGHT_MARGIN_MM + (CMP_OFFSET_MM - MAIN_MM) / 2);
+    // 中央寄せのとき、下降系列の最長の初期長が収まるのに必要な幅（max = W − cmpX − 余白 ≥ 初期長 を W について解く）
+    const needMm = store.layout === 'v'
+      ? START_MM.down[1] + 2 * RIGHT_MARGIN_MM
+      : 2 * (START_MM.down[1] + RIGHT_MARGIN_MM + (CMP_OFFSET_MM - MAIN_MM) / 2);
     if (s && stage.clientWidth / s < needMm) {
       const need = (needMm / 10).toFixed(1);
       msgs.push(`ウィンドウの幅が足りません（実寸で約 ${need}cm 必要）。ウィンドウを広げるか全画面表示にしてください。`);
@@ -395,13 +435,16 @@
     const s = pxPerMm();
     if (e.pointerType !== 'mouse' || e.button !== 0) return; // 入力はマウス（左ボタン）のみ
     if (!s || cur.len == null) return;
-    cur.drag = { x: e.clientX, len: cur.len };
+    // 縦並びは中央固定で左右対称に伸縮するので、掴んだ端がカーソルに付いて動くよう、移動量を 2 倍し向きを端に合わせる
+    const centered = store.layout === 'v';
+    const side = e.clientX < stage.getBoundingClientRect().left + stage.clientWidth / 2 ? -1 : 1;
+    cur.drag = { x: e.clientX, len: cur.len, k: centered ? 2 * side : 1 };
     stage.setPointerCapture(e.pointerId);
   });
   stage.addEventListener('pointermove', e => {
     const s = pxPerMm();
     if (!cur.drag || !s) return;
-    cur.len = clampLen(cur.drag.len + (e.clientX - cur.drag.x) / s, s); // 画素単位で連続的に動かす
+    cur.len = clampLen(cur.drag.len + cur.drag.k * (e.clientX - cur.drag.x) / s, s); // 画素単位で連続的に動かす
     render();
   });
   const endDrag = () => { cur.drag = null; };
@@ -470,12 +513,23 @@
   };
   $('calibBtn').onclick = openCalib;
 
+  // ---------- 配置の切り替え ----------
+  document.querySelectorAll('.layout-btn').forEach(b => {
+    b.onclick = () => {
+      if (store.layout === b.dataset.l) return;
+      store.layout = b.dataset.l;
+      save();
+      newTrial();   // 配置ごとに進捗が別なので、試行を始め直す
+      updateUI();
+    };
+  });
+
   // ---------- リセット ----------
   $('resetBtn').onclick = () => {
     const t = cur.theta;
     $('resetMsg').textContent = t == null
-      ? '記録したデータをすべて消去しますか？（画面校正は残ります）'
-      : `θ=${t}° のデータのみ消去するか、すべてのθのデータを消去するか選んでください。（画面校正は残ります）`;
+      ? `【${LAYOUT_JA[store.layout]}】の記録をすべて消去しますか？（画面校正と、もう一方の配置の記録は残ります）`
+      : `【${LAYOUT_JA[store.layout]}】の θ=${t}° のみ消去するか、すべてのθを消去するか選んでください。（画面校正と、もう一方の配置の記録は残ります）`;
     $('rCur').style.display = t == null ? 'none' : '';
     $('resetDlg').showModal();
   };
@@ -586,7 +640,10 @@
     toast(ok ? msg : 'コピーに失敗しました');
   }
 
-  $('resultBtn').onclick = () => { buildResult(); $('resDlg').showModal(); };
+  $('resultBtn').onclick = () => {
+    $('resTitle').textContent = `結果（${LAYOUT_JA[store.layout]}・単位: cm）`;
+    buildResult(); $('resDlg').showModal();
+  };
   $('resClose').onclick = () => $('resDlg').close();
 
   // ---------- トースト ----------
