@@ -68,15 +68,18 @@
   /* ---- calibration overlay ---- */
   #calib {
     position: fixed; inset: 0; z-index: 10; background: #fff; display: none;
-    flex-direction: column; align-items: center; padding: 24px 16px; overflow: auto;
+    flex-direction: column; align-items: flex-start; padding: 24px; overflow: auto;
   }
-  #calib h2 { margin: 0 0 6px; }
-  #calib ol { margin: 4px 0 18px; padding-left: 1.4em; max-width: 640px; line-height: 1.7; }
-  #cardSvg { display: block; margin: 6px 0 14px; max-width: none; flex: none; }
-  #calibCtl { display: flex; align-items: center; gap: 8px; width: min(900px, 100%); }
+  #calibCol { width: min(640px, 100%); text-align: left; }
+  #calibCol h2 { margin: 0 0 6px; }
+  #calibCol ol { margin: 4px 0 16px; padding-left: 1.4em; line-height: 1.7; }
+  #calibCtl { display: flex; align-items: center; gap: 8px; }
   #calibCtl input[type=range] { flex: 1; }
+  #calibCol .actions { justify-content: flex-start; margin: 12px 0 18px; }
+  /* カードの左上を固定し、右・下へ伸び縮みさせる（操作部品はカードより上に置いて動かさない） */
+  #cardSvg { display: block; margin: 0; max-width: none; }
   #calibNum { font-variant-numeric: tabular-nums; color: var(--text); margin-bottom: 2px; }
-  #calibInfo { color: var(--muted); margin: 6px 0 18px; font-size: 13px; line-height: 1.7; text-align: center; }
+  #calibInfo { color: var(--muted); margin: 6px 0 0; font-size: 13px; line-height: 1.7; }
   #calib .lead { margin: 0 0 6px; color: var(--muted); }
   #calib li small { color: var(--muted); }
 
@@ -132,28 +135,30 @@
 
 <!-- calibration -->
 <div id="calib">
-  <h2>画面の校正（初回のみ）</h2>
-  <p class="lead">刺激（主線 8cm など）を実寸で表示するため、カードを使って画面の寸法（1cm あたりの画素数）を校正します。</p>
-  <ol>
-    <li><b>学生証（カードタイプ）</b>か<b>クレジットカード</b>を、横向きに持ちます。<br><small>※ 規格サイズ（横 <b>8.56cm</b> × 縦 5.40cm）のものを使ってください。</small></li>
-    <li>画面の<b>青い四角</b>にカードを重ねます。</li>
-    <li>下のスライダーを動かして、四角の<b>左右の縦線がカードの左右の縁にぴったり付く</b>ように合わせます。</li>
-    <li>合ったら「決定」を押します。</li>
-  </ol>
-  <svg id="cardSvg" xmlns="http://www.w3.org/2000/svg"></svg>
-  <div id="calibCtl">
-    <button id="cMinus" title="0.5px 縮める">−</button>
-    <input id="cRange" type="range" min="200" max="1100" step="0.5">
-    <button id="cPlus" title="0.5px 広げる">＋</button>
-  </div>
-  <div id="calibInfo">
-    <div id="calibNum"></div>
-    縦線は幅 1px の細線で、その中心がカードの縁の位置です。四角の角は目安です（丸い角＝青、直角の角＝赤）。<br>
-    ブラウザの表示倍率は 100% のままにしてください。
-  </div>
-  <div class="actions" style="margin:0">
-    <button id="cCancel">キャンセル</button>
-    <button id="cOk" class="primary">決定</button>
+  <div id="calibCol">
+    <h2>画面の校正（初回のみ）</h2>
+    <p class="lead">刺激（主線 8cm など）を実寸で表示するため、カードを使って画面の寸法（1cm あたりの画素数）を校正します。</p>
+    <ol>
+      <li><b>学生証・運転免許証・クレジットカード</b>などを、横向きに持ちます。<br><small>※ 規格サイズ（横 <b>8.56cm</b> × 縦 5.40cm）のものを使ってください。</small></li>
+      <li>カードの<b>左上の角</b>を、下の<b>青い四角の左上の角</b>に合わせて重ねます。</li>
+      <li>スライダーを動かすと、四角は左上を固定したまま右・下へ伸び縮みします。四角の<b>左右の縦線がカードの左右の縁にぴったり付く</b>ように合わせます。</li>
+      <li>合ったら「決定」を押します。</li>
+    </ol>
+    <div id="calibCtl">
+      <button id="cMinus" title="0.5px 縮める">−</button>
+      <input id="cRange" type="range" min="200" max="800" step="0.5">
+      <button id="cPlus" title="0.5px 広げる">＋</button>
+    </div>
+    <div class="actions">
+      <button id="cCancel">キャンセル</button>
+      <button id="cOk" class="primary">決定</button>
+    </div>
+    <svg id="cardSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="calibInfo">
+      <div id="calibNum"></div>
+      縦線は幅 1px の細線で、その中心がカードの縁の位置です。四角の角は目安です（丸い角＝青、直角の角＝赤）。<br>
+      ブラウザの表示倍率は 100% のままにしてください。
+    </div>
   </div>
 </div>
 
