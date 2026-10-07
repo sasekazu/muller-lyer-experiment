@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ミュラー・リヤー錯視実験</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bar: #f1f3f5;
+    --line: #ced4da;
+    --text: #212529;
+    --muted: #6c757d;
+    --accent: #1c64f2;
+    --done: #2b8a3e;
+    --warn-bg: #fff3bf;
+    --warn-text: #664d03;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex; flex-direction: column;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Segoe UI", sans-serif;
+    font-size: 15px;
+    user-select: none; -webkit-user-select: none;
+  }
+  button {
+    font: inherit; color: inherit; cursor: pointer;
+    padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; background: #fff;
+  }
+  button:hover { background: #e9ecef; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { background: #1855cc; }
+  button.danger { color: #c92a2a; }
+
+  /* ---- toolbar ---- */
+  #toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+    padding: 8px 14px; background: var(--bar); border-bottom: 1px solid var(--line);
+  }
+  .group { display: flex; align-items: center; gap: 6px; }
+  .group > .label { color: var(--muted); margin-right: 2px; }
+  .theta-btn { min-width: 84px; text-align: center; line-height: 1.25; }
+  .theta-btn small { display: block; color: var(--muted); font-size: 11px; }
+  .theta-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .theta-btn.active small { color: #dbe4ff; }
+  .theta-btn.done small { color: var(--done); font-weight: 600; }
+  .theta-btn.active.done small { color: #d3f9d8; }
+  .spacer { flex: 1; }
+
+  #status { padding: 6px 14px; color: var(--muted); border-bottom: 1px solid var(--line); min-height: 32px; }
+  #status b { color: var(--text); }
+  #banner { display: none; padding: 8px 14px; background: var(--warn-bg); color: var(--warn-text); border-bottom: 1px solid #ffe066; }
+  #banner button { margin-left: 8px; padding: 2px 10px; }
+
+  /* ---- stage ---- */
+  #stageWrap { position: relative; flex: 1; min-height: 0; }
+  #stage { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: ew-resize; background: #fff; }
+  #bottom {
+    position: absolute; left: 0; right: 0; bottom: 18px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px; pointer-events: none;
+  }
+  #hint { color: var(--muted); font-size: 13px; }
+  #recordBtn { pointer-events: auto; font-size: 18px; padding: 12px 56px; border-radius: 10px; }
+
+  /* ---- calibration overlay ---- */
+  #calib {
+    position: fixed; inset: 0; z-index: 10; background: #fff; display: none;
+    flex-direction: column; align-items: center; padding: 24px 16px; overflow: auto;
+  }
+  #calib h2 { margin: 0 0 6px; }
+  #calib ol { margin: 4px 0 18px; padding-left: 1.4em; max-width: 640px; line-height: 1.7; }
+  #cardSvg { display: block; margin: 6px 0 14px; max-width: none; flex: none; }
+  #calibCtl { display: flex; align-items: center; gap: 8px; width: min(900px, 100%); }
+  #calibCtl input[type=range] { flex: 1; }
+  #calibNum { font-variant-numeric: tabular-nums; color: var(--text); margin-bottom: 2px; }
+  #calibInfo { color: var(--muted); margin: 6px 0 18px; font-size: 13px; line-height: 1.7; text-align: center; }
+  #calib .lead { margin: 0 0 6px; color: var(--muted); }
+  #calib li small { color: var(--muted); }
+
+  /* ---- dialogs ---- */
+  dialog { border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; max-width: min(1100px, 96vw); color: var(--text); }
+  dialog::backdrop { background: rgba(0,0,0,.35); }
+  dialog h2 { margin: 0 0 10px; font-size: 18px; }
+  .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; touch-action: none; user-select: none; -webkit-user-select: none; }
+  td.v { cursor: cell; }
+  td.v.sel { background: #d0e0ff; }
+  th.col { cursor: pointer; }
+  th.col:hover { background: #e2e6ea; }
+  th, td { border: 1px solid var(--line); padding: 5px 9px; text-align: right; white-space: nowrap; }
+  th { background: var(--bar); font-weight: 600; text-align: center; font-size: 13px; }
+  th small { color: var(--muted); font-weight: 400; }
+  td.theta { text-align: center; font-weight: 600; }
+  td.empty { color: #adb5bd; }
+  td.label { text-align: center; background: var(--bar); font-weight: 600; font-size: 13px; }
+  td.label small { color: var(--muted); font-weight: 400; }
+  .note { color: var(--muted); font-size: 12.5px; margin-top: 8px; line-height: 1.6; }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 100;
+    background: #212529; color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 14px;
+    opacity: 0; transition: opacity .2s; pointer-events: none;
+  }
+  #toast.show { opacity: .94; }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <div class="group" id="thetaGroup"><span class="label">θ</span></div>
+  <div class="spacer"></div>
+  <div class="group">
+    <button id="undoBtn">1つ戻す</button>
+    <button id="resultBtn">結果を表示</button>
+    <button id="resetBtn" class="danger">リセット</button>
+    <button id="calibBtn">画面校正</button>
+  </div>
+</div>
+<div id="banner"></div>
+<div id="status"></div>
+
+<div id="stageWrap">
+  <svg id="stage" xmlns="http://www.w3.org/2000/svg"></svg>
+  <div id="bottom">
+    <div id="hint">右の線をマウスでドラッグして、左の矢印の主線と同じ長さに合わせ、「記録」を押してください</div>
+    <button id="recordBtn" class="primary">記録</button>
+  </div>
+</div>
+
+<!-- calibration -->
+<div id="calib">
+  <h2>画面の校正（初回のみ）</h2>
+  <p class="lead">刺激（主線 8cm など）を実寸で表示するため、カードを使って画面の寸法（1cm あたりの画素数）を校正します。</p>
+  <ol>
+    <li><b>学生証（カードタイプ）</b>か<b>クレジットカード</b>を、横向きに持ちます。<br><small>※ 規格サイズ（横 <b>8.56cm</b> × 縦 5.40cm）のものを使ってください。</small></li>
+    <li>画面の<b>青い四角</b>にカードを重ねます。</li>
+    <li>下のスライダーを動かして、四角の<b>左右の縦線がカードの左右の縁にぴったり付く</b>ように合わせます。</li>
+    <li>合ったら「決定」を押します。</li>
+  </ol>
+  <svg id="cardSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+  <div id="calibCtl">
+    <button id="cMinus" title="0.5px 縮める">−</button>
+    <input id="cRange" type="range" min="200" max="1100" step="0.5">
+    <button id="cPlus" title="0.5px 広げる">＋</button>
+  </div>
+  <div id="calibInfo">
+    <div id="calibNum"></div>
+    縦線は幅 1px の細線で、その中心がカードの縁の位置です。四角の角は目安です（丸い角＝青、直角の角＝赤）。<br>
+    ブラウザの表示倍率は 100% のままにしてください。
+  </div>
+  <div class="actions" style="margin:0">
+    <button id="cCancel">キャンセル</button>
+    <button id="cOk" class="primary">決定</button>
+  </div>
+</div>
+
+<!-- results -->
+<dialog id="resDlg">
+  <h2>結果（単位: cm）</h2>
+  <div id="resTable"></div>
+  <div class="note">
+    表の上を<b>ドラッグ</b>してコピーしたい範囲を選び、<b>Ctrl+C（Mac は ⌘+C）</b>を押すと、Excel にそのまま貼り付けられます。
+    列の見出し（θ）をクリックするとその列全体を、左上の角をクリックすると全体を選択します。
+  </div>
+  <div class="actions">
+    <button id="resClose" class="primary">閉じる</button>
+  </div>
+</dialog>
+
+<!-- reset -->
+<dialog id="resetDlg">
+  <h2>リセット</h2>
+  <p id="resetMsg" style="margin:0 0 6px"></p>
+  <div class="actions">
+    <button id="rCancel">キャンセル</button>
+    <button id="rCur" class="danger">このθのみ消去</button>
+    <button id="rAll" class="danger">すべて消去</button>
+  </div>
+</dialog>
+
+<div id="toast"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- 実験パラメータ ----------
+  const THETAS   = [60, 120, 180, 240, 300];
+  const SERIES   = ['up', 'down', 'down', 'up', 'up', 'down', 'down', 'up']; // 固定順
+  const N_TRIALS = SERIES.length;
+  const SERIES_JA = { up: '上昇', down: '下降' };
+
+  const CARD_W_MM = 85.6;                 // ISO/IEC 7810 ID-1
+  const CARD_H_MM = 53.98;
+  const MAIN_MM   = 80;                   // 標準刺激の主線 8cm
+  const FIN_MM    = 24;                   // 矢尻の長さ 2.4cm
+  const CMP_OFFSET_MM = 105;              // 標準刺激の左端から比較線の左端まで（主線 80 + 間隔 25）
+  const REF_WIDTH_MM  = CMP_OFFSET_MM + MAIN_MM; // 比較線が 8cm のときの全体の幅。これを画面中央に置く
+  const RIGHT_MARGIN_MM = 5;
+  const MIN_LEN_MM = 10;
+  const START_MM  = { up: [40, 50], down: [110, 120] }; // 比較線の初期長（範囲内で毎回ランダム）
+  const STROKE_PX = 2;
+
+  const LS_KEY = 'muller-lyer-v1';
+
+  // ---------- 状態 ----------
+  const emptyTrials = () => Object.fromEntries(THETAS.map(t => [t, []]));
+  let store = load();
+  const cur = { theta: null, len: null, drag: null };
+
+  function load() {
+    try {
+      const o = JSON.parse(localStorage.getItem(LS_KEY));
+      if (o && o.trials) {
+        for (const t of THETAS) if (!Array.isArray(o.trials[t])) o.trials[t] = [];
+        return { calib: o.calib || null, trials: o.trials };
+      }
+    } catch (e) {}
+    return { calib: null, trials: emptyTrials() };
+  }
+  function save() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(store)); } catch (e) {}
+  }
+
+  // ---------- 校正値 ----------
+  // 保存した「CSS px / mm」を、ズーム変更（devicePixelRatio の変化）分だけ補正して返す
+  function pxPerMm() {
+    const c = store.calib;
+    if (!c) return null;
+    return c.pxPerMm * c.dpr / window.devicePixelRatio;
+  }
+  const dprMismatch = () => store.calib && Math.abs(store.calib.dpr - window.devicePixelRatio) > 0.001;
+
+  // ---------- DOM ----------
+  const $ = id => document.getElementById(id);
+  const stage = $('stage');
+  const NS = 'http://www.w3.org/2000/svg';
+
+  // θボタン
+  const thetaBtns = {};
+  for (const t of THETAS) {
+    const b = document.createElement('button');
+    b.className = 'theta-btn';
+    b.innerHTML = `${t}°<small></small>`;
+    b.addEventListener('click', () => selectTheta(t));
+    $('thetaGroup').appendChild(b);
+    thetaBtns[t] = b;
+  }
+
+  // ---------- 描画 ----------
+  function el(name, attrs) {
+    const e = document.createElementNS(NS, name);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  // 標準刺激＋比較線（8cm 時）を画面の左右中央に置くための左端位置（mm）
+  const originMm = s => (stage.clientWidth / s - REF_WIDTH_MM) / 2;
+  function maxLenMm(s) {
+    return Math.floor(stage.clientWidth / s - (originMm(s) + CMP_OFFSET_MM) - RIGHT_MARGIN_MM);
+  }
+  const clampLen = (mm, s) => Math.max(MIN_LEN_MM, Math.min(maxLenMm(s), mm));
+
+  function arrowhead(tipX, tipY, inwardSign, theta, s) {
+    // θ = 矢尻の開き角（2本の矢羽根のなす角、主線側から測る）。
+    // 60° で通常の矢印（>—<）、240° で逆向き（<—>）。180° は矢尻なしとして描かない。
+    const h = theta / 2 * Math.PI / 180;
+    const dx = inwardSign * Math.cos(h) * FIN_MM * s;
+    const dy = Math.sin(h) * FIN_MM * s;
+    return el('polyline', {
+      points: `${tipX + dx},${tipY - dy} ${tipX},${tipY} ${tipX + dx},${tipY + dy}`,
+      fill: 'none', stroke: '#000', 'stroke-width': STROKE_PX,
+      'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+    });
+  }
+
+  function render() {
+    const s = pxPerMm();
+    stage.replaceChildren();
+    const W = stage.clientWidth, H = stage.clientHeight;
+    stage.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    if (!s || cur.theta == null) return;
+
+    const cy = Math.round(H / 2) + 0.5;
+    const x0 = originMm(s) * s, x1 = x0 + MAIN_MM * s;
+
+    // 標準刺激（左）
+    stage.appendChild(el('line', { x1: x0, y1: cy, x2: x1, y2: cy, stroke: '#000', 'stroke-width': STROKE_PX }));
+    if (cur.theta !== 180) {
+      stage.appendChild(arrowhead(x0, cy, +1, cur.theta, s));
+      stage.appendChild(arrowhead(x1, cy, -1, cur.theta, s));
+    }
+
+    // 比較刺激（右）
+    if (cur.len != null) {
+      const c0 = x0 + CMP_OFFSET_MM * s;
+      stage.appendChild(el('line', {
+        x1: c0, y1: cy, x2: c0 + cur.len * s, y2: cy, stroke: '#000', 'stroke-width': STROKE_PX,
+      }));
+    }
+  }
+
+  const fmtCm = mm => (mm / 10).toFixed(1);
+
+  function updateUI() {
+    // θボタン
+    for (const t of THETAS) {
+      const n = store.trials[t].length, b = thetaBtns[t];
+      b.classList.toggle('active', t === cur.theta);
+      b.classList.toggle('done', n >= N_TRIALS);
+      b.querySelector('small').textContent = n >= N_TRIALS ? '完了 ✓' : `${n} / ${N_TRIALS}`;
+    }
+
+    // ステータス
+    const st = $('status');
+    const t = cur.theta;
+    if (!store.calib) {
+      st.textContent = '最初に画面校正を行ってください。';
+    } else if (t == null) {
+      st.textContent = 'θ のボタンを押して選んでください。順序は自由です。';
+    } else {
+      const n = store.trials[t].length;
+      st.innerHTML = n >= N_TRIALS
+        ? `<b>θ = ${t}°</b> ・ 8 回の測定が完了しました。測定値は「結果を表示」で確認・コピーできます。`
+        : `<b>θ = ${t}°</b> ・ 試行 <b>${n + 1} / ${N_TRIALS}</b> ・ ${SERIES_JA[SERIES[n]]}系列`;
+    }
+
+    const done = t != null && store.trials[t].length >= N_TRIALS;
+    $('recordBtn').disabled = t == null || done || cur.len == null;
+    $('undoBtn').disabled = t == null || store.trials[t].length === 0;
+    $('bottom').style.display = t == null || done ? 'none' : '';
+
+    // バナー
+    const bn = $('banner');
+    const s = pxPerMm();
+    const msgs = [];
+    if (dprMismatch()) msgs.push('表示倍率が校正時と異なります（自動補正中）。ブラウザのズームを戻すか、再校正してください。');
+    // 中央寄せのとき、下降系列の最長の初期長が収まるのに必要な幅（max = W/2 + REF/2 − CMP_OFFSET − 余白 ≥ 初期長）
+    const needMm = 2 * (START_MM.down[1] + RIGHT_MARGIN_MM + (CMP_OFFSET_MM - MAIN_MM) / 2);
+    if (s && stage.clientWidth / s < needMm) {
+      const need = (needMm / 10).toFixed(1);
+      msgs.push(`ウィンドウの幅が足りません（実寸で約 ${need}cm 必要）。ウィンドウを広げるか全画面表示にしてください。`);
+    }
+    bn.style.display = msgs.length ? 'block' : 'none';
+    bn.innerHTML = msgs.join('<br>') + (dprMismatch() ? '<button id="bnCalib">再校正</button>' : '');
+    const bc = $('bnCalib'); if (bc) bc.onclick = openCalib;
+
+    render();
+  }
+
+  // ---------- 試行の進行 ----------
+  function newTrial() {
+    const s = pxPerMm();
+    const t = cur.theta;
+    if (t == null || !s) { cur.len = null; return; }
+    const n = store.trials[t].length;
+    if (n >= N_TRIALS) { cur.len = null; return; }
+    const [a, b] = START_MM[SERIES[n]];
+    cur.len = clampLen(a + Math.floor(Math.random() * (b - a + 1)), s);
+  }
+
+  function selectTheta(t) {
+    if (!store.calib) return;
+    cur.theta = t;
+    newTrial();
+    updateUI();
+  }
+
+  function record() {
+    const t = cur.theta;
+    if (t == null || cur.len == null || store.trials[t].length >= N_TRIALS) return;
+    store.trials[t].push(Math.round(cur.len)); // mm 単位（1mm まで）
+    save();
+    newTrial();
+    updateUI();
+  }
+
+  function undo() {
+    const t = cur.theta;
+    if (t == null || !store.trials[t].length) return;
+    store.trials[t].pop();
+    save();
+    newTrial();
+    updateUI();
+  }
+
+  // ---------- 比較線の操作 ----------
+  stage.addEventListener('pointerdown', e => {
+    const s = pxPerMm();
+    if (e.pointerType !== 'mouse' || e.button !== 0) return; // 入力はマウス（左ボタン）のみ
+    if (!s || cur.len == null) return;
+    cur.drag = { x: e.clientX, len: cur.len };
+    stage.setPointerCapture(e.pointerId);
+  });
+  stage.addEventListener('pointermove', e => {
+    const s = pxPerMm();
+    if (!cur.drag || !s) return;
+    cur.len = clampLen(Math.round(cur.drag.len + (e.clientX - cur.drag.x) / s), s);
+    render();
+  });
+  const endDrag = () => { cur.drag = null; };
+  stage.addEventListener('pointerup', endDrag);
+  stage.addEventListener('pointercancel', endDrag);
+
+  // マウス操作のみ：クリック後にボタンへフォーカスを残さない（Enter / Space での誤作動防止）
+  document.querySelectorAll('button').forEach(b => b.addEventListener('mouseup', () => b.blur()));
+
+  $('recordBtn').onclick = record;
+  $('undoBtn').onclick = undo;
+
+  // ---------- 校正 ----------
+  const cardSvg = $('cardSvg'), cRange = $('cRange');
+  let calibPx = 323;
+
+  // カード枠：丸角の実線（実物の角 R=3.18mm）＋ 直角の点線 ＋ 左右縁の縦ガイド線（カードの上下にはみ出す）
+  // 直角の角を示す L 字（4 隅）
+  const corners = (x0, y0, x1, y1, L) =>
+    `M${x0} ${y0 + L}V${y0}H${x0 + L} M${x1 - L} ${y0}H${x1}V${y0 + L} M${x1} ${y1 - L}V${y1}H${x1 - L} M${x0 + L} ${y1}H${x0}V${y1 - L}`;
+  function drawCard(w, ppm) {
+    const h = w * CARD_H_MM / CARD_W_MM, PAD = 8, EXT = 36;
+    const W = w + PAD * 2, H = h + EXT * 2;
+    const x0 = PAD, x1 = PAD + w, y0 = EXT, y1 = EXT + h;
+    const C = '#1c64f2';
+    cardSvg.setAttribute('width', W);
+    cardSvg.setAttribute('height', H);
+    cardSvg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    cardSvg.replaceChildren(
+      el('rect', { x: x0, y: y0, width: w, height: h, rx: 3.18 * ppm, fill: '#e7f0ff', stroke: C, 'stroke-width': 1 }),
+      el('path', { d: corners(x0, y0, x1, y1, 16), fill: 'none', stroke: '#c92a2a', 'stroke-width': 1.5 }),
+      el('line', { x1: x0, y1: 0, x2: x0, y2: H, stroke: C, 'stroke-width': 1 }),
+      el('line', { x1: x1, y1: 0, x2: x1, y2: H, stroke: C, 'stroke-width': 1 }),
+    );
+    const t = el('text', { x: W / 2, y: H / 2 + 5, 'text-anchor': 'middle', fill: C, 'font-weight': 600, 'font-size': 15 });
+    t.textContent = 'カードをここに重ねる';
+    cardSvg.appendChild(t);
+  }
+
+  function setCalibPx(px) {
+    calibPx = Math.max(+cRange.min, Math.min(+cRange.max, px));
+    cRange.value = calibPx;
+    const ppm = calibPx / CARD_W_MM;
+    drawCard(calibPx, ppm);
+    $('calibNum').textContent =
+      `横幅 ${calibPx.toFixed(1)} px ／ 1 cm ＝ ${(ppm * 10).toFixed(1)} px ／ 約 ${(ppm * 25.4).toFixed(0)} px/inch（CSS px）`;
+  }
+  function openCalib() {
+    const s = pxPerMm();
+    setCalibPx(s ? s * CARD_W_MM : 96 / 25.4 * CARD_W_MM);
+    $('calib').style.display = 'flex';
+  }
+  function closeCalib() { $('calib').style.display = 'none'; }
+
+  cRange.addEventListener('input', () => setCalibPx(+cRange.value));
+  $('cMinus').onclick = () => setCalibPx(calibPx - 0.5);
+  $('cPlus').onclick  = () => setCalibPx(calibPx + 0.5);
+  $('cCancel').onclick = () => { if (store.calib) closeCalib(); else toast('最初に校正が必要です'); };
+  $('cOk').onclick = () => {
+    store.calib = { pxPerMm: calibPx / CARD_W_MM, dpr: window.devicePixelRatio };
+    save();
+    closeCalib();
+    if (cur.theta == null) cur.theta = THETAS[0]; // 最初は θ=60°
+    newTrial();
+    updateUI();
+  };
+  $('calibBtn').onclick = openCalib;
+
+  // ---------- リセット ----------
+  $('resetBtn').onclick = () => {
+    const t = cur.theta;
+    $('resetMsg').textContent = t == null
+      ? '記録したデータをすべて消去しますか？（画面校正は残ります）'
+      : `θ=${t}° のデータのみ消去するか、すべてのθのデータを消去するか選んでください。（画面校正は残ります）`;
+    $('rCur').style.display = t == null ? 'none' : '';
+    $('resetDlg').showModal();
+  };
+  $('rCancel').onclick = () => $('resetDlg').close();
+  $('rCur').onclick = () => {
+    store.trials[cur.theta] = [];
+    save(); newTrial(); updateUI(); $('resetDlg').close();
+    toast(`θ=${cur.theta}° をリセットしました`);
+  };
+  $('rAll').onclick = () => {
+    store.trials = emptyTrials();
+    save(); newTrial(); updateUI(); $('resetDlg').close();
+    toast('すべてリセットしました');
+  };
+
+  // ---------- 結果 ----------
+  // ---- 結果表（ドラッグで範囲選択 → Ctrl/⌘+C）----
+  // 列＝θ、行＝試行。値セルは data-r / data-c で位置を持つ。
+  let selA = null, selB = null, selDragging = false;
+
+  function buildResult() {
+    selA = selB = null;
+    let h = '<table id="resGrid"><thead><tr><th class="all" title="全体を選択"></th>'
+      + THETAS.map((t, c) => `<th class="col" data-c="${c}" title="この列を選択">${t}°</th>`).join('') + '</tr></thead><tbody>';
+    for (let r = 0; r < N_TRIALS; r++) {
+      h += `<tr><td class="label">試行${r + 1} <small>${SERIES_JA[SERIES[r]]}</small></td>`;
+      THETAS.forEach((t, c) => {
+        const v = store.trials[t][r];
+        h += `<td class="v${v == null ? ' empty' : ''}" data-r="${r}" data-c="${c}">${v != null ? fmtCm(v) : '–'}</td>`;
+      });
+      h += '</tr>';
+    }
+    $('resTable').innerHTML = h + '</tbody></table>';
+  }
+
+  function paintSel() {
+    const r0 = selA ? Math.min(selA.r, selB.r) : 1, r1 = selA ? Math.max(selA.r, selB.r) : 0;
+    const c0 = selA ? Math.min(selA.c, selB.c) : 1, c1 = selA ? Math.max(selA.c, selB.c) : 0;
+    $('resTable').querySelectorAll('td.v').forEach(td => {
+      const r = +td.dataset.r, c = +td.dataset.c;
+      td.classList.toggle('sel', r >= r0 && r <= r1 && c >= c0 && c <= c1);
+    });
+  }
+
+  const selectAll = () => { selA = { r: 0, c: 0 }; selB = { r: N_TRIALS - 1, c: THETAS.length - 1 }; paintSel(); };
+  const cellAt = (x, y) => {
+    const e = document.elementFromPoint(x, y);
+    return e && e.closest ? e.closest('td.v') : null;
+  };
+
+  $('resTable').addEventListener('selectstart', e => e.preventDefault()); // 標準の文字選択は使わない
+  $('resTable').addEventListener('pointerdown', e => {
+    if (e.target.closest('th.all')) { selectAll(); return; }
+    const th = e.target.closest('th.col');
+    if (th) { const c = +th.dataset.c; selA = { r: 0, c }; selB = { r: N_TRIALS - 1, c }; paintSel(); return; }
+    const td = e.target.closest('td.v');
+    if (!td) return;
+    selA = selB = { r: +td.dataset.r, c: +td.dataset.c };
+    selDragging = true;
+    paintSel();
+  });
+  window.addEventListener('pointermove', e => {
+    if (!selDragging) return;
+    const td = cellAt(e.clientX, e.clientY);
+    if (td) { selB = { r: +td.dataset.r, c: +td.dataset.c }; paintSel(); }
+  });
+  window.addEventListener('pointerup', () => { selDragging = false; });
+
+  function selectionText() {
+    if (!selA) return null;
+    const r0 = Math.min(selA.r, selB.r), r1 = Math.max(selA.r, selB.r);
+    const c0 = Math.min(selA.c, selB.c), c1 = Math.max(selA.c, selB.c);
+    const rows = [];
+    for (let r = r0; r <= r1; r++) {
+      const row = [];
+      for (let c = c0; c <= c1; c++) {
+        const v = store.trials[THETAS[c]][r];
+        row.push(v != null ? fmtCm(v) : '');
+      }
+      rows.push(row.join('\t'));
+    }
+    return rows.join('\n');
+  }
+
+  $('resDlg').addEventListener('keydown', e => {
+    if (!(e.metaKey || e.ctrlKey)) return;
+    const k = e.key.toLowerCase();
+    if (k === 'a') {
+      e.preventDefault(); selectAll();
+    } else if (k === 'c') {
+      const t = selectionText();
+      if (t == null) { toast('先にコピーしたい範囲をドラッグで選択してください'); return; }
+      e.preventDefault();
+      copyText(t, 'コピーしました（Excel に貼り付けできます）');
+    }
+  });
+
+  async function copyText(text, msg) {
+    let ok = false;
+    try { await navigator.clipboard.writeText(text); ok = true; } catch (e) {}
+    if (!ok) {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { ok = document.execCommand('copy'); } catch (e) {}
+      ta.remove();
+    }
+    toast(ok ? msg : 'コピーに失敗しました');
+  }
+
+  $('resultBtn').onclick = () => { buildResult(); $('resDlg').showModal(); };
+  $('resClose').onclick = () => $('resDlg').close();
+
+  // ---------- トースト ----------
+  let toastTimer;
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  // ---------- 起動 ----------
+  window.addEventListener('resize', () => {
+    const s = pxPerMm();
+    if (s && cur.len != null) cur.len = clampLen(cur.len, s);
+    updateUI();
+  });
+
+  if (store.calib) { cur.theta = THETAS[0]; newTrial(); } // 最初は θ=60°
+  updateUI();
+  if (!store.calib) openCalib();
+})();
+</script>
+</body>
+</html>
