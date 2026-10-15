@@ -73,7 +73,10 @@
     flex-direction: column; align-items: flex-start; padding: 24px; overflow: auto;
   }
   #calibCol { width: min(640px, 100%); text-align: left; }
+  .course-title { font-size: 16px; font-weight: 600; color: var(--text); margin: 0 0 10px; }
   #calibCol h2 { margin: 0 0 6px; }
+  .footer { padding: 4px 14px; text-align: center; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); background: var(--bar); }
+  #calibCol .footer { margin-top: 24px; padding: 8px 0 0; text-align: left; background: none; }
   #calibCol ol { margin: 4px 0 16px; padding-left: 1.4em; line-height: 1.7; }
   #calibCtl { display: flex; align-items: center; gap: 8px; }
   #calibCtl input[type=range] { flex: 1; }
@@ -139,15 +142,17 @@
     <button id="recordBtn" class="primary">記録</button>
   </div>
 </div>
+<div class="footer">機械知能工学実験II　「人の知覚特性に関する実験」</div>
 
 <!-- calibration -->
 <div id="calib">
   <div id="calibCol">
+    <div class="course-title">機械知能工学実験II　「人の知覚特性に関する実験」</div>
     <h2>画面の校正（初回のみ）</h2>
     <p class="lead">刺激（主線 8cm など）を実寸で表示するため、カードを使って画面の寸法（1cm あたりの画素数）を校正します。</p>
     <ol>
-      <li>最初に <b>Ctrl + 0</b>（Mac は <b>⌘ + 0</b>）を押してください。そのあとは<b>拡大・縮小をしないでください</b>。</li>
-      <li><b>学生証・運転免許証・クレジットカード</b>などを、横向きに持ちます。<br><small>※ 規格サイズ（横 <b>8.56cm</b> × 縦 5.40cm）のものを使ってください。</small></li>
+      <li>最初に <b>Ctrl + 0</b>（Mac は <b>⌘ + 0</b>）を押してください。そのあとは<b>ブラウザ画面の拡大・縮小をしないでください</b>。</li>
+      <li><b>クレジットカード・キャッシュカード・学生証・運転免許証</b>などを、横向きに持ちます。<br><small>※ 規格サイズ（横 <b>8.56cm</b> × 縦 5.40cm）のものを使ってください。</small></li>
       <li>カードの<b>左上の角</b>を、下の<b>青い四角の左上の角</b>に合わせて重ねます。</li>
       <li>スライダーを動かすと、四角は左上を固定したまま右・下へ伸び縮みします。四角の<b>左右の縦線がカードの左右の縁にぴったり付く</b>ように合わせます。</li>
       <li>合ったら「決定」を押します。</li>
@@ -166,6 +171,7 @@
       <div id="calibNum"></div>
       縦線は幅 1px の細線で、その中心がカードの縁の位置です。四角の角は目安です（丸い角＝青、直角の角＝赤）。
     </div>
+    <div class="footer">機械知能工学実験II　「人の知覚特性に関する実験」</div>
   </div>
 </div>
 
