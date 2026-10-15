@@ -50,6 +50,14 @@
   .theta-btn.active.done small { color: #d3f9d8; }
   .layout-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
   .spacer { flex: 1; }
+  .menu { position: relative; }
+  .panel {
+    position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; white-space: nowrap;
+    display: flex; align-items: center; gap: 6px; padding: 8px 10px;
+    background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.15);
+  }
+  .panel[hidden] { display: none; }
+  .panel .label { color: var(--muted); }
 
   #status { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 2px 20px; padding: 6px 14px; color: var(--muted); border-bottom: 1px solid var(--line); min-height: 32px; }
   #status b { color: var(--text); }
@@ -119,17 +127,20 @@
 
 <div id="toolbar">
   <div class="group" id="thetaGroup"><span class="label">θ</span></div>
-  <div class="group" id="layoutGroup">
-    <span class="label">配置</span>
-    <button class="layout-btn" data-l="h">横並び</button>
-    <button class="layout-btn" data-l="v">縦並び</button>
-  </div>
   <div class="spacer"></div>
   <div class="group">
     <button id="undoBtn">1つ戻す</button>
     <button id="resultBtn">結果を表示</button>
     <button id="resetBtn" class="danger">リセット</button>
     <button id="calibBtn">画面校正</button>
+    <div class="menu">
+      <button id="moreBtn" aria-expanded="false">詳細設定 ▾</button>
+      <div id="morePanel" class="panel" hidden>
+        <span class="label">配置</span>
+        <button class="layout-btn" data-l="h">横並び</button>
+        <button class="layout-btn" data-l="v">縦並び</button>
+      </div>
+    </div>
   </div>
 </div>
 <div id="banner"></div>
@@ -530,6 +541,12 @@
       updateUI();
     };
   });
+
+  // 詳細設定メニュー（開閉）
+  const morePanel = $('morePanel'), moreBtn = $('moreBtn');
+  const setMore = open => { morePanel.hidden = !open; moreBtn.setAttribute('aria-expanded', open); moreBtn.textContent = open ? '詳細設定 ▴' : '詳細設定 ▾'; };
+  moreBtn.onclick = () => setMore(morePanel.hidden);
+  document.addEventListener('pointerdown', e => { if (!e.target.closest('.menu')) setMore(false); });
 
   // ---------- リセット ----------
   $('resetBtn').onclick = () => {
