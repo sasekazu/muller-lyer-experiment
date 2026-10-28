@@ -229,6 +229,7 @@
   const CMP_OFFSET_MM = 105;              // 標準刺激の左端から比較線の左端まで（主線 80 + 間隔 25）
   const REF_WIDTH_MM  = CMP_OFFSET_MM + MAIN_MM; // 比較線が 8cm のときの全体の幅。これを画面中央に置く
   const RIGHT_MARGIN_MM = 5;
+  const LEFT_MARGIN_MM = 22;              // 左寄せのときの左余白。θ=300° で矢羽根が主線の左端から約 20.8mm 外へ出る
   const VGAP_MM = 60;                     // 縦並びのときの 2 本の線の間隔（矢羽根が最大 2.4cm 出るので十分あける）
   const MIN_LEN_MM = 10;
   const START_MM  = { up: [40, 50], down: [110, 120] }; // 比較線の初期長（範囲内で毎回ランダム）
@@ -310,7 +311,8 @@
       const x = (W - MAIN_MM) / 2;
       return { stdX: x, cmpCentered: true, stdY: -VGAP_MM / 2, cmpY: VGAP_MM / 2 }; // 比較線は常に画面中央（左右対称に伸縮）
     }
-    const x = (W - REF_WIDTH_MM) / 2;
+    // 中央寄せだと比較線の最長の初期長が収まらない狭い画面では、左へ寄せて収める（左端は矢羽根が収まる余白まで）
+    const x = Math.max(LEFT_MARGIN_MM, Math.min((W - REF_WIDTH_MM) / 2, W - CMP_OFFSET_MM - START_MM.down[1] - RIGHT_MARGIN_MM));
     return { stdX: x, cmpX: x + CMP_OFFSET_MM, stdY: 0, cmpY: 0 };
   }
   function maxLenMm(s) {
@@ -397,10 +399,10 @@
     const s = pxPerMm();
     const msgs = [];
     if (dprMismatch()) msgs.push('表示倍率が校正時と異なります（自動補正中）。ブラウザのズームを戻すか、再校正してください。');
-    // 中央寄せのとき、下降系列の最長の初期長が収まるのに必要な幅（max = W − cmpX − 余白 ≥ 初期長 を W について解く）
+    // 下降系列の最長の初期長が収まるのに必要な幅（横並びは狭いとき左寄せにするので、左余白＋標準刺激の左端から比較線の右端まで）
     const needMm = store.layout === 'v'
       ? START_MM.down[1] + 2 * RIGHT_MARGIN_MM
-      : 2 * (START_MM.down[1] + RIGHT_MARGIN_MM + (CMP_OFFSET_MM - MAIN_MM) / 2);
+      : LEFT_MARGIN_MM + CMP_OFFSET_MM + START_MM.down[1] + RIGHT_MARGIN_MM;
     if (s && stage.clientWidth / s < needMm) {
       const need = (needMm / 10).toFixed(1);
       msgs.push(`ウィンドウの幅が足りません（実寸で約 ${need}cm 必要）。ウィンドウを広げるか全画面表示にしてください。`);
